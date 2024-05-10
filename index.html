@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loan Management System</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        table, th, td {
+            border: 1px solid black;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        .highlight {
+            background-color: yellow;
+        }
+        .payments-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        .payment-item {
+            margin-bottom: 5px;
+        }
+        .delete-payment {
+            color: red;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .zero-balance {
+            color: red;
+        }
+        #loanRecords {
+            max-height: 200px; /* Adjust the height as needed */
+            overflow-y: scroll; /* Always show scrollbar */
+            display: block; /* Prevent table from expanding beyond its container */
+        }
+        /* Additional CSS styles for Summary Report */
+        #summaryReport {
+            margin-top: 20px;
+        }
+        #summaryReport h3 {
+            margin-bottom: 5px;
+        }
+        #incomeReport {
+            margin-top: 20px;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        #incomeReport h3 {
+            margin-bottom: 5px;
+        }
+        #incomeReport th, #incomeReport td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        #incomeTotal {
+            border-top: 2px solid black;
+            padding: 8px;
+            font-weight: bold;
+        }
+        .income-history-frame {
+            height: 150px;
+            overflow-y: scroll;
+            border: 1px solid black;
+            padding: 5px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loan Management System Form -->
+    <h2>Loan Management System</h2>
+    <form id="loanForm">
+        <label for="borrowerName">Borrower Name:</label>
+        <input type="text" id="borrowerName" name="borrowerName" required><br><br>
+        <label for="loanAmount">Loan Amount:</label>
+        <input type="number" id="loanAmount" name="loanAmount" required><br><br>
+        <label for="transactionDate">Transaction Date:</label>
+        <input type="date" id="transactionDate" name="transactionDate" required><br><br>
+        <button type="submit">Add Record</button>
+    </form>
+
+    <!-- Loan Records Table -->
+    <h3>Loan Records</h3>
+    <label for="loanRecordFilter">Filter Loan Records:</label>
+    <select id="loanRecordFilter" onchange="filterLoanRecords()">
+        <option value="All">All</option>
+    </select>
+    <table id="loanRecords">
+        <thead>
+            <tr>
+                <th>Borrower Name</th>
+                <th>Initial Loan</th>
+                <th>Total Loan Amount</th>
+                <th>Total Payments Made</th>
+                <th>Remaining Balance</th>
+                <th>Interest (20%)</th>
+                <th>Transaction Date</th>
+                <th>Payments</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <!-- Summary Report -->
+    <div id="summaryReport">
+        <h3>Summary Report</h3>
+        <table>
+            <tr>
+                <td>Total Borrower Loan Amount:</td>
+                <td><span id="totalBorrowerLoanAmount">0</span></td>
+            </tr>
+            <tr>
+                <td>Total Interest:</td>
+                <td><span id="totalInterest">0</span></td>
+            </tr>
+            <tr>
+                <td>Total Money Computation:</td>
+                <td><span id="totalMoneyComputation">0</span></td>
+            </tr>
+        </table>
+    </div>
+
+    <!-- Income Report -->
+    <div id="incomeReport">
+        <h3>Income Report</h3>
+        <div class="income-history-frame">
+            <table id="incomeTable">
+                <thead>
+                    <tr>
+                        <th>Date Processed</th>
+                        <th>Income</th>
+                        <th>Interest Income</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div id="incomeTotal">
+            Total Income: <span id="totalIncomeReport">0</span> | Total Interest Income: <span id="totalInterestIncomeReport">0</span>
+        </div>
+        <br>
+        <label for="totalIncome">Total Income:</label>
+        <input type="number" id="totalIncome" name="totalIncome"><br><br>
+        <label for="totalInterestIncome">Total Interest Income:</label>
+        <input type="number" id="totalInterestIncome" name="totalInterestIncome"><br><br>
+        <input type="date" id="incomeDate" name="incomeDate">
+        <button onclick="processIncome()">Process</button>
+        <button onclick="resetIncomeReport()">Reset</button>
+    </div>
+
+    <!-- Script Section -->
+    <script>
+        let records = JSON.parse(localStorage.getItem('loanRecords')) || [];
+
+        document.getElementById('loanForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            let borrowerName = document.getElementById('borrowerName').value;
+            let loanAmount = parseFloat(document.getElementById('loanAmount').value);
+            let transactionDate = document.getElementById('transactionDate').value;
+            let interest = (loanAmount * 0.20).toFixed(2);
+            let totalLoanAmount = (loanAmount + parseFloat(interest)).toFixed(2);
+            let newRow = `<tr>
+                            <td>${borrowerName}</td>
+                            <td class="initialLoan">${loanAmount}</td>
+                            <td>${totalLoanAmount}</td>
+                            <td>0</td>
+                            <td class="remainingBalance">${totalLoanAmount}</td>
+                            <td>${interest}</td>
+                            <td>${transactionDate}</td>
+                            <td>
+                                <ul id="payments_${borrowerName}" class="payments-list"></ul>
+                            </td>
+                            <td>
+                                <button onclick="makePayment(this)">Make Payment</button>
+                                <button onclick="deleteRecord(this)">Delete</button>
+                            </td>
+                        </tr>`;
+            document.querySelector('#loanRecords tbody').insertAdjacentHTML('beforeend', newRow);
+            records.push({
+                borrowerName: borrowerName,
+                initialLoan: loanAmount,
+                totalLoanAmount: totalLoanAmount,
+                totalPayments: 0,
+                remainingBalance: totalLoanAmount,
+                interest: interest,
+                payments: []
+            });
+            updateFilters();
+            updateSummaryReport();
+            localStorage.setItem('loanRecords', JSON.stringify(records));
+        });
+
+        function makePayment(button) {
+            let row = button.parentNode.parentNode;
+            let borrowerName = row.cells[0].textContent;
+            let paymentAmount = parseFloat(prompt("Enter payment amount:"));
+            if (isNaN(paymentAmount) || paymentAmount <= 0) {
+                alert("Invalid payment amount!");
+                return;
+            }
+            let paymentDate = document.getElementById(`paymentDate_${borrowerName}`).value;
+            let record = records.find(r => r.borrowerName === borrowerName);
+            let remainingBalance = record.remainingBalance;
+            if (paymentAmount > remainingBalance) {
+                alert("Payment amount exceeds remaining balance!");
+                return;
+            }
+            let initialLoan = record.initialLoan;
+            let totalPayments = record.totalPayments + paymentAmount;
+            let interest = (initialLoan * 0.20).toFixed(2);
+            let newRemainingBalance = record.totalLoanAmount - totalPayments;
+            row.cells[1].textContent = initialLoan;
+            row.cells[2].textContent = record.totalLoanAmount;
+            row.cells[3].textContent = totalPayments.toFixed(2);
+            row.cells[4].textContent = newRemainingBalance.toFixed(2);
+            row.cells[5].textContent = interest;
+            if (newRemainingBalance <= 0) {
+                row.cells[4].classList.remove('highlight');
+                row.cells[4].classList.add('zero-balance');
+            } else {
+                row.cells[4].classList.remove('zero-balance');
+                row.cells[4].classList.add('highlight');
+            }
+            record.totalPayments = totalPayments;
+            record.remainingBalance = newRemainingBalance;
+            record.payments.push({ amount: paymentAmount, date: paymentDate });
+            updatePayments(borrowerName);
+            updateSummaryReport();
+            localStorage.setItem('loanRecords', JSON.stringify(records));
+        }
+
+        function deleteRecord(button) {
+            let row = button.parentNode.parentNode;
+            let borrowerName = row.cells[0].textContent;
+            let index = records.findIndex(r => r.borrowerName === borrowerName);
+            if (index !== -1) {
+                records.splice(index, 1);
+            }
+            row.parentNode.removeChild(row);
+            updateFilters();
+            updateSummaryReport();
+            localStorage.setItem('loanRecords', JSON.stringify(records));
+        }
+
+        function filterLoanRecords() {
+            let borrowerName = document.getElementById('loanRecordFilter').value;
+            let rows = document.querySelectorAll('#loanRecords tbody tr');
+            rows.forEach(row => {
+                let cell = row.cells[0];
+                if (cell) {
+                    row.style.display = (borrowerName === 'All' || cell.textContent === borrowerName) ? '' : 'none';
+                }
+            });
+        }
+
+        function updateFilters() {
+            let loanRecordFilter = document.getElementById('loanRecordFilter');
+            loanRecordFilter.innerHTML = '';
+            let allOption = document.createElement('option');
+            allOption.text = 'All';
+            loanRecordFilter.add(allOption);
+            let uniqueBorrowers = [...new Set(records.map(record => record.borrowerName))];
+            uniqueBorrowers.forEach(borrower => {
+                let option = document.createElement('option');
+                option.text = borrower;
+                loanRecordFilter.add(option);
+            });
+        }
+
+        function updatePayments(borrowerName) {
+            let paymentsList = document.getElementById(`payments_${borrowerName}`);
+            let record = records.find(r => r.borrowerName === borrowerName);
+            paymentsList.innerHTML = formatPayments(record.payments);
+        }
+
+        function formatPayments(payments) {
+            return payments.map(payment => `<li class="payment-item">${payment.amount} (${payment.date}) <button class="delete-payment" onclick="deletePayment(this)">Delete</button></li>`).join('');
+        }
+
+        function deletePayment(button) {
+            let row = button.parentNode;
+            let borrowerName = row.parentNode.id.split('_')[1];
+            let paymentAmount = parseFloat(row.textContent.split(' ')[0]);
+            let record = records.find(r => r.borrowerName === borrowerName);
+            let index = record.payments.findIndex(p => p.amount === paymentAmount);
+            if (index !== -1) {
+                record.payments.splice(index, 1);
+            }
+            row.parentNode.removeChild(row);
+            record.totalPayments -= paymentAmount;
+            record.remainingBalance += paymentAmount;
+            let mainRow = document.querySelector(`#loanRecords td:first-child:contains(${borrowerName})`).parentNode;
+            mainRow.cells[3].textContent = record.totalPayments.toFixed(2);
+            mainRow.cells[4].textContent = record.remainingBalance.toFixed(2);
+            updateSummaryReport();
+            localStorage.setItem('loanRecords', JSON.stringify(records));
+        }
+
+        function updateSummaryReport() {
+            let totalBorrowerLoanAmount = records.reduce((total, record) => total + parseFloat(record.initialLoan), 0).toFixed(2);
+            document.getElementById('totalBorrowerLoanAmount').textContent = totalBorrowerLoanAmount;
+
+            let totalInterest = records.reduce((total, record) => {
+                let interest = parseFloat(record.interest);
+                return isNaN(interest) ? total : total + interest;
+            }, 0).toFixed(2);
+            document.getElementById('totalInterest').textContent = totalInterest;
+
+            let totalMoneyComputation = (parseFloat(totalBorrowerLoanAmount) + parseFloat(totalInterest)).toFixed(2);
+            document.getElementById('totalMoneyComputation').textContent = totalMoneyComputation;
+        }
+
+        function processIncome() {
+            let totalIncome = parseFloat(document.getElementById('totalIncome').value);
+            let totalInterestIncome = parseFloat(document.getElementById('totalInterestIncome').value);
+            let incomeDate = document.getElementById('incomeDate').value;
+            let newRow = `<tr>
+                            <td>${incomeDate}</td>
+                            <td>${totalIncome}</td>
+                            <td>${totalInterestIncome}</td>
+                        </tr>`;
+            document.getElementById('incomeTable').getElementsByTagName('tbody')[0].insertAdjacentHTML('beforeend', newRow);
+            updateIncomeReport();
+        }
+
+        function resetIncomeReport() {
+            document.getElementById('incomeTable').getElementsByTagName('tbody')[0].innerHTML = '';
+            updateIncomeReport();
+        }
+
+        function updateIncomeReport() {
+            let totalIncome = Array.from(document.querySelectorAll('#incomeTable tbody tr td:nth-child(2)'))
+                .map(td => parseFloat(td.textContent))
+                .reduce((acc, val) => acc + val, 0);
+            let totalInterestIncome = Array.from(document.querySelectorAll('#incomeTable tbody tr td:nth-child(3)'))
+                .map(td => parseFloat(td.textContent))
+                .reduce((acc, val) => acc + val, 0);
+            document.getElementById('totalIncomeReport').textContent = totalIncome.toFixed(2);
+            document.getElementById('totalInterestIncomeReport').textContent = totalInterestIncome.toFixed(2);
+        }
+
+        window.onload = function() {
+            retrieveRecords();
+            updateFilters();
+            updateSummaryReport();
+            updateIncomeReport();
+        }
+
+        function retrieveRecords() {
+            let records = JSON.parse(localStorage.getItem('loanRecords')) || [];
+            records.forEach(record => {
+                let newRow = `<tr>
+                                <td>${record.borrowerName}</td>
+                                <td>${record.initialLoan}</td>
+                                <td>${record.totalLoanAmount}</td>
+                                <td>${record.totalPayments.toFixed(2)}</td>
+                                <td>${record.remainingBalance.toFixed(2)}</td>
+                                <td>${record.interest}</td>
+                                <td>${record.transactionDate}</td>
+                                <td>
+                                    <ul id="payments_${record.borrowerName}" class="payments-list">${formatPayments(record.payments)}</ul>
+                                </td>
+                                <td>
+                                    <button onclick="makePayment(this)">Make Payment</button>
+                                    <button onclick="deleteRecord(this)">Delete</button>
+                                </td>
+                            </tr>`;
+                document.querySelector('#loanRecords tbody').insertAdjacentHTML('beforeend', newRow);
+            });
+        }
+    </script>
+</body>
+</html>
