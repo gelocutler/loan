@@ -161,7 +161,7 @@
 
     <!-- Script Section -->
     <script>
-        let records = JSON.parse(localStorage.getItem('loanRecords')) || [];
+        let records = [];
 
         document.getElementById('loanForm').addEventListener('submit', function(e) {
             e.preventDefault();
@@ -178,15 +178,10 @@
                             <td class="remainingBalance">${totalLoanAmount}</td>
                             <td>${interest}</td>
                             <td>${transactionDate}</td>
-                            <td>
-                                <ul id="payments_${borrowerName}" class="payments-list"></ul>
-                            </td>
-                            <td>
-                                <button onclick="makePayment(this)">Make Payment</button>
-                                <button onclick="deleteRecord(this)">Delete</button>
-                            </td>
+                            <td><ul id="payments_${borrowerName}" class="payments-list"></ul></td>
+                            <td><input type="date" id="paymentDate_${borrowerName}"> <button onclick="makePayment(this)">Make Payment</button> <button onclick="deleteRecord(this)">Delete</button></td>
                         </tr>`;
-            document.querySelector('#loanRecords tbody').insertAdjacentHTML('beforeend', newRow);
+            document.getElementById('loanRecords').getElementsByTagName('tbody')[0].insertAdjacentHTML('beforeend', newRow);
             records.push({
                 borrowerName: borrowerName,
                 initialLoan: loanAmount,
@@ -198,7 +193,6 @@
             });
             updateFilters();
             updateSummaryReport();
-            localStorage.setItem('loanRecords', JSON.stringify(records));
         });
 
         function makePayment(button) {
@@ -237,7 +231,6 @@
             record.payments.push({ amount: paymentAmount, date: paymentDate });
             updatePayments(borrowerName);
             updateSummaryReport();
-            localStorage.setItem('loanRecords', JSON.stringify(records));
         }
 
         function deleteRecord(button) {
@@ -250,7 +243,6 @@
             row.parentNode.removeChild(row);
             updateFilters();
             updateSummaryReport();
-            localStorage.setItem('loanRecords', JSON.stringify(records));
         }
 
         function filterLoanRecords() {
@@ -304,7 +296,6 @@
             mainRow.cells[3].textContent = record.totalPayments.toFixed(2);
             mainRow.cells[4].textContent = record.remainingBalance.toFixed(2);
             updateSummaryReport();
-            localStorage.setItem('loanRecords', JSON.stringify(records));
         }
 
         function updateSummaryReport() {
@@ -348,36 +339,10 @@
                 .reduce((acc, val) => acc + val, 0);
             document.getElementById('totalIncomeReport').textContent = totalIncome.toFixed(2);
             document.getElementById('totalInterestIncomeReport').textContent = totalInterestIncome.toFixed(2);
-        }
 
-        window.onload = function() {
-            retrieveRecords();
-            updateFilters();
-            updateSummaryReport();
-            updateIncomeReport();
-        }
-
-        function retrieveRecords() {
-            let records = JSON.parse(localStorage.getItem('loanRecords')) || [];
-            records.forEach(record => {
-                let newRow = `<tr>
-                                <td>${record.borrowerName}</td>
-                                <td>${record.initialLoan}</td>
-                                <td>${record.totalLoanAmount}</td>
-                                <td>${record.totalPayments.toFixed(2)}</td>
-                                <td>${record.remainingBalance.toFixed(2)}</td>
-                                <td>${record.interest}</td>
-                                <td>${record.transactionDate}</td>
-                                <td>
-                                    <ul id="payments_${record.borrowerName}" class="payments-list">${formatPayments(record.payments)}</ul>
-                                </td>
-                                <td>
-                                    <button onclick="makePayment(this)">Make Payment</button>
-                                    <button onclick="deleteRecord(this)">Delete</button>
-                                </td>
-                            </tr>`;
-                document.querySelector('#loanRecords tbody').insertAdjacentHTML('beforeend', newRow);
-            });
+            // Update Total Summary
+            let totalSum = totalIncome + totalInterestIncome;
+            document.getElementById('totalSum').textContent = totalSum.toFixed(2);
         }
     </script>
 </body>
